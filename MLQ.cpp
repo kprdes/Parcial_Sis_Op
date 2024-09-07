@@ -1,32 +1,268 @@
 #include "MLQ.hpp"
 
-vector<proccess> MLQ::GetVector(const string& Value) {
-    map<string, vector<proccess>>::iterator it = proccesses.find(Value);
-    if (it != proccesses.end()) {
-        return it->second;
-    } else {
-        return vector<proccess>();
+MLQ::MLQ(){
+}
+
+MLQ::~MLQ(){
+}
+
+
+void MLQ::SetQuantum (int NewQuantum){
+    this->quantum = NewQuantum;
+}
+int MLQ::GetQuantum(){
+    int tmp = this->quantum;
+    return tmp;
+}
+
+deque<proccess> MLQ::GetQueue(const string& Value) {
+    if(Value == "RR"){
+        return this->RRQueue;
+    }
+    else if(Value == "FCFS"){
+        return this->FCFSQueue;
+    }
+    else if(Value == "SJF"){
+        return this->SJFQueue;
     }
 }
 
-void MLQ::AddProccess(proccess* NewProccess) {
-    string ID = NewProccess->GetID();
-    int AT = NewProccess->GetAT();
-    vector<proccess> tmpVector = GetVector(ID);
+void MLQ::SetQueue(deque<proccess> TmpQueue, string Value){
+    if(Value == "RR"){
+        this->RRQueue = TmpQueue;
+    }
+    else if(Value == "FCFS"){
+        this->FCFSQueue = TmpQueue;
+    }
+    else if(Value == "SJF"){
+        this->SJFQueue = TmpQueue;
+    }
+}
 
-    if (!tmpVector.empty()) {
-        for (auto it = tmpVector.begin(); it != tmpVector.end(); ++it) {
-            int AT_tmp = it->GetAT();
-            if (AT <= AT_tmp) {
-                tmpVector.insert(it, *NewProccess);
-                this->proccesses[ID] = tmpVector;
-                return;
+
+void MLQ::AddProccess(proccess* NewProccess) {
+    string WhichQueue = NewProccess->GetWhichQueue();
+    int AT = NewProccess->GetAT(), BT = NewProccess->GetBT();
+    deque<proccess> tmpQueue = GetQueue(WhichQueue);
+
+    if (!tmpQueue.empty()) {
+        for (deque<proccess>::iterator it = tmpQueue.begin(); it != tmpQueue.end(); ++it) {
+            int AT_tmp = it->GetAT(), BT_tmp = it->GetBT();
+            if (AT <= AT_tmp && WhichQueue != "SJF") {
+                tmpQueue.insert(it, *NewProccess);
+                return; 
+            }
+            else if(BT <= BT_tmp && WhichQueue == "SJF"){
+                tmpQueue.insert(it, *NewProccess);
+                return; 
             }
         }
-        tmpVector.push_back(*NewProccess);
-        this->proccesses[ID] = tmpVector;
+        tmpQueue.push_back(*NewProccess);
     } else {
-        tmpVector.push_back(*NewProccess);
-        this->proccesses[ID] = tmpVector;
+        tmpQueue.push_back(*NewProccess);
+    }
+    SetQueue(tmpQueue, WhichQueue);
+}
+
+void MLQ::Execute(){
+    while(!this->RRQueue.empty() || !this->FCFSQueue.empty() || !this->SJFQueue.empty()){
+        ExecuteRR();
+        ExecuteFCFS();
+        ExecuteSJF();
+        if(this->GotIn == 0){
+            this->CurrentTime += 1;
+        }
+    }
+    FShowResults();
+}
+
+int MLQ::CalcWT(){
+    int count = 0, Average = 0, Execute;
+    deque<int>::iterator it = this->WT.begin();
+    while(it != this->WT.end()){
+        Average += *it;
+        count++;
+        it++;
+    }
+    Execute = Average / count;
+    return Execute;
+}
+int MLQ::CalcRT(){
+    int count = 0, Average = 0, Execute;
+    deque<int>::iterator it = this->RT.begin();
+    while(it != this->RT.end()){
+        Average += *it;
+        count++;
+        it++;
+    }
+    Execute = Average / count;
+    return Execute;
+}
+
+void MLQ::FShowResults(){
+    int Final_WT = CalcWT(), Final_RT = CalcRT();
+
+    cout << "**************************\n" << "Showing sort all processes\n" << "**************************\n" << endl;
+    
+    
+    for(deque<string>::iterator it = this->ShowResults.begin(); it != this->ShowResults.end(); it++){
+        cout << *it << "  ";
+    }
+    cout <<  "\n" << endl;
+
+    cout << "**********************\n" << "Table of each proccess" << "\n**********************" << endl;
+    
+    
+
+    cout << "ID" << " | " << "WT" << " | " << "RT" << endl;
+
+    for(map<string, int>::iterator it = this->WT_Total.begin(); it != this->WT_Total.end(); it++){
+        if(this->RT_Total[it->first] == -1){
+            cout << it->first << " | " << it->second << " | " << "0" << "\n";
+        }
+        else{
+            cout << it->first << " | " << it->second << " | " << this->RT_Total[it->first] << "\n";
+        }
+        
+    }
+    cout << endl;
+
+    cout << "Waiting time average: " << Final_WT << "\nFirst Time Average: " << Final_RT << endl;
+
+
+
+
+}
+
+void MLQ::AddExport(string ID, int BT){
+    for(int i = 0; i < BT; i++){
+        this->ShowResults.push_back(ID);
+    }
+}
+
+
+void MLQ::IncWT(int AddValue){
+    for(deque<proccess>::iterator it = this->RRQueue.begin(); it != this->RRQueue.end(); it++){
+        it->SetWT(AddValue);
+    }
+    for(deque<proccess>::iterator it = this->FCFSQueue.begin(); it != this->FCFSQueue.end(); it++){
+        it->SetWT(AddValue);
+    }
+    for(deque<proccess>::iterator it = this->SJFQueue.begin(); it != this->SJFQueue.end(); it++){
+        it->SetWT(AddValue);
+    }
+}
+
+void MLQ::ExecuteRR() {
+    while (!this->RRQueue.empty()) {
+        auto CurrentProccess = this->RRQueue.front();
+        this->RRQueue.pop_front();
+        int BT = CurrentProccess.GetBT(), AT = CurrentProccess.GetAT();
+        string ID = CurrentProccess.GetID();
+        if(AT > this->CurrentTime){
+            this->RRQueue.push_front(CurrentProccess);
+            this->GotIn = 0;
+            return;
+        }
+        else{
+            this->GotIn = 1;
+            if(CurrentProccess.GetRT() == 0){
+                if(this->CurrentTime == 0){
+                    CurrentProccess.SetRT(-1);  
+                }
+                else{
+                    CurrentProccess.SetRT(this->CurrentTime); 
+                }
+            }
+            if (BT > this->quantum) {
+                BT -= this->quantum;
+                CurrentProccess.SetBT(BT);
+                AddExport(ID, this->quantum);
+                this->CurrentTime += quantum;
+                IncWT(this->quantum);
+                if (this->RRQueue.size() > 1) {
+                    this->RRQueue.insert(this->RRQueue.begin() + 1, CurrentProccess);
+                } else {
+                    this->RRQueue.push_back(CurrentProccess);
+                }
+                
+            } else {
+                AddExport(ID, BT);
+                this->CurrentTime += BT;
+                IncWT(BT);
+                this->WT.push_back(CurrentProccess.GetWT());
+                this->RT.push_back(CurrentProccess.GetRT());
+                this->WT_Total[ID] = CurrentProccess.GetWT();
+                this->RT_Total[ID] = CurrentProccess.GetRT();
+            }
+        }
+    }
+
+        
+}
+
+void MLQ::ExecuteFCFS(){
+    while(!this->FCFSQueue.empty()){
+        auto CurrentProccess = this->FCFSQueue.front();
+        this->FCFSQueue.pop_front();
+        int BT = CurrentProccess.GetBT(), AT = CurrentProccess.GetAT();
+        string ID = CurrentProccess.GetID();
+        if(AT > this->CurrentTime){
+            this->FCFSQueue.push_front(CurrentProccess);
+            this->GotIn = 0;
+            return;
+        }
+        else{
+            this->GotIn = 1;
+            if(CurrentProccess.GetRT() == 0){
+                if(this->CurrentTime == 0){
+                CurrentProccess.SetRT(-1);  
+                }
+                else{
+                    CurrentProccess.SetRT(this->CurrentTime); 
+                }
+            }
+            AddExport(ID, BT);
+            this->CurrentTime += BT;
+            IncWT(BT);
+            this->WT.push_back(CurrentProccess.GetWT());
+            this->RT.push_back(CurrentProccess.GetRT());
+            this->WT_Total[ID] = CurrentProccess.GetWT();
+            this->RT_Total[ID] = CurrentProccess.GetRT();
+        }
+    
+    }
+}
+
+void MLQ::ExecuteSJF(){
+    while(!this->SJFQueue.empty()){
+        auto CurrentProccess = this->SJFQueue.front();
+        this->SJFQueue.pop_front();
+        int BT = CurrentProccess.GetBT(), AT = CurrentProccess.GetAT();
+        string ID = CurrentProccess.GetID();
+        if(AT > this->CurrentTime){
+            this->SJFQueue.push_front(CurrentProccess);
+            this->GotIn = 0;
+            return;
+        }
+        else{
+            this->GotIn = 1;
+            if(CurrentProccess.GetRT() == 0){
+                if(this->CurrentTime == 0){
+                CurrentProccess.SetRT(-1);  
+                }
+                else{
+                    CurrentProccess.SetRT(this->CurrentTime); 
+                }
+            }
+            AddExport(ID, BT);
+            this->CurrentTime += BT;
+            IncWT(BT);
+            this->WT.push_back(CurrentProccess.GetWT());
+            this->RT.push_back(CurrentProccess.GetRT());
+            this->WT_Total[ID] = CurrentProccess.GetWT();
+            this->RT_Total[ID] = CurrentProccess.GetRT();
+        }
+    
     }
 }

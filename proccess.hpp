@@ -1,28 +1,38 @@
 #ifndef PROCCESS_hpp
 #define PROCCESS_hpp
+
 #include <iostream>
 #include <string>
 
 using namespace std;
 
-class proccess{
+class proccess {
 private:
     string ID;
+    string WhichQueue;
     int AT;
     int BT;
     int PRT;
+    int WT = 0; 
+    int RT = 0; 
+    int ConstWT = 0;
+
 public:
-    proccess(string i_ID, int i_AT, int i_BT, int i_PRT);
+    proccess(string i_ID, string i_Queue, int i_AT, int i_BT, int i_PRT);
     ~proccess();
+    
     int GetAT();
+    string GetWhichQueue();
     string GetID();
+    int GetBT();
+    
+    void SetBT(int NewBT);
+    
+    int GetWT();
+    void SetWT(int NewWT);
+    
+    int GetRT();
+    void SetRT(int NewRT);
 };
 
-proccess::proccess(string i_ID, int i_AT, int i_BT, int i_PRT) : ID(i_ID), AT(i_AT), BT(i_BT), PRT(i_PRT){
-}
-
-proccess::~proccess(){
-}
-
-
-#endif //PROCCESS_hpp
+#endif // PROCCESS_hpp
