@@ -31,11 +31,7 @@ int proccess::GetWT() {
 }
 
 void proccess::SetWT(int NewWT) {
-    /*
-    if(NewWT < 0){
-        this->ConstWT = this->ConstWT - NewWT;
-    }
-*/
+
     this->WT += NewWT;  
 }
 

@@ -48,11 +48,7 @@ void MLQ::AddProccess(proccess* NewProccess) {
     if (!tmpQueue.empty()) {
         for (deque<proccess>::iterator it = tmpQueue.begin(); it != tmpQueue.end(); ++it) {
             int AT_tmp = it->GetAT(), BT_tmp = it->GetBT();
-            if (AT <= AT_tmp && WhichQueue != "SJF") {
-                tmpQueue.insert(it, *NewProccess);
-                return; 
-            }
-            else if(BT <= BT_tmp && WhichQueue == "SJF"){
+            if (AT <= AT_tmp) {
                 tmpQueue.insert(it, *NewProccess);
                 return; 
             }
@@ -128,10 +124,6 @@ void MLQ::FShowResults(){
     cout << endl;
 
     cout << "Waiting time average: " << Final_WT << "\nFirst Time Average: " << Final_RT << endl;
-
-
-
-
 }
 
 void MLQ::AddExport(string ID, int BT){
@@ -234,35 +226,72 @@ void MLQ::ExecuteFCFS(){
     }
 }
 
-void MLQ::ExecuteSJF(){
-    while(!this->SJFQueue.empty()){
+proccess* MLQ::CheckProccess(proccess* CurrentProccess) {
+    int BT = CurrentProccess->GetBT(), MinAT = this->CurrentTime + BT;
+    proccess* BestProccess = nullptr;
+    auto it = this->SJFQueue.begin(); 
+    for (auto iter = this->SJFQueue.begin(); iter != this->SJFQueue.end(); ++iter) {
+        int AT = iter->GetAT(), tmpBT = iter->GetBT();
+        if (AT < MinAT && tmpBT < BT) {
+            BestProccess = &(*iter);
+            it = iter;
+        }
+    }
+    if (BestProccess != nullptr) {
+        this->SJFQueue.erase(it); 
+    }
+    return BestProccess;
+}
+
+
+
+void MLQ::ExecuteSJF() {
+    while (!this->SJFQueue.empty()) {
         auto CurrentProccess = this->SJFQueue.front();
         this->SJFQueue.pop_front();
         int BT = CurrentProccess.GetBT(), AT = CurrentProccess.GetAT();
         string ID = CurrentProccess.GetID();
-        if(AT > this->CurrentTime){
+        proccess* PossibleProccess = CheckProccess(&CurrentProccess);
+
+        if (AT > this->CurrentTime) {
             this->SJFQueue.push_front(CurrentProccess);
             this->GotIn = 0;
             return;
         }
-        else{
-            this->GotIn = 1;
-            if(CurrentProccess.GetRT() == 0){
-                if(this->CurrentTime == 0){
-                CurrentProccess.SetRT(-1);  
+
+        while (BT > 0) {
+            PossibleProccess = CheckProccess(&CurrentProccess);
+            if (PossibleProccess == nullptr) {
+                if (CurrentProccess.GetRT() == 0) {
+                    if (this->CurrentTime == 0) {
+                        CurrentProccess.SetRT(-1);
+                    } else {
+                        CurrentProccess.SetRT(this->CurrentTime);
+                    }
                 }
-                else{
-                    CurrentProccess.SetRT(this->CurrentTime); 
+                AddExport(ID, BT);
+                this->CurrentTime += BT;
+                IncWT(BT);
+                this->WT.push_back(CurrentProccess.GetWT());
+                this->RT.push_back(CurrentProccess.GetRT());
+                this->WT_Total[ID] = CurrentProccess.GetWT();
+                this->RT_Total[ID] = CurrentProccess.GetRT();
+                BT = 0;
+            } else {
+                int execTime = PossibleProccess->GetAT() - this->CurrentTime;
+                if (execTime > 0) {
+                    CurrentProccess.SetBT(BT - execTime);
+                    this->CurrentTime += execTime;
+                    BT -= execTime;
+                    AddExport(ID, execTime);
+                    IncWT(execTime);
                 }
+                this->SJFQueue.push_front(CurrentProccess);
+                CurrentProccess = *PossibleProccess; 
+                BT = CurrentProccess.GetBT();
+                AT = CurrentProccess.GetAT();
+                ID = CurrentProccess.GetID();
             }
-            AddExport(ID, BT);
-            this->CurrentTime += BT;
-            IncWT(BT);
-            this->WT.push_back(CurrentProccess.GetWT());
-            this->RT.push_back(CurrentProccess.GetRT());
-            this->WT_Total[ID] = CurrentProccess.GetWT();
-            this->RT_Total[ID] = CurrentProccess.GetRT();
         }
-    
     }
 }

@@ -5,6 +5,7 @@
 #include <map>
 #include "proccess.hpp"
 #include <deque>
+#include <algorithm>
 
 using namespace std;
 
@@ -33,6 +34,7 @@ public:
     void ExecuteRR ();
     void ExecuteFCFS ();
     void ExecuteSJF ();
+    proccess* CheckProccess(proccess* CurrentProccess);
     void AddExport(string ID, int BT);
     void IncWT(int AddValue);
     void FShowResults();
